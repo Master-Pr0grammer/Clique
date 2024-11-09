@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
-export default function Example() {
+export default function Index() {
   const [form, setForm] = useState({
     email: '',
     password: '',
