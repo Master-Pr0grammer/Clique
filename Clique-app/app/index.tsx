@@ -30,7 +30,8 @@ export default function Index() {
   );
 }
 
-const styles = StyleSheet.create({
+
+export const styles = StyleSheet.create({
     container: {
         padding: 24,
         flex: 1,
