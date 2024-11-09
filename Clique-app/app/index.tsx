@@ -8,6 +8,7 @@ export default function Index() {
                 <Image 
                     source={require("../assets/images/react-logo.png")}
                     style={styles.headerImg}
+                    resizeMode="contain" // Maintain aspect ratio.
                 />
             </View>
         </View>
@@ -25,10 +26,9 @@ const styles = StyleSheet.create({
         marginVertical: 36,
     },
     headerImg: {
-        flexBasis: '50%',
-        height: 'auto',
-        alignSelf: 'center',
-        marginBottom: 36,
+        width: '100%',
+        height: undefined,
+        aspectRatio: 1,
     },
     title: {
         fontSize: 27,
