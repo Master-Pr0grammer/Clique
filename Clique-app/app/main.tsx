@@ -1,5 +1,5 @@
 import { SafeAreaView, StyleSheet, Text, TextInput, Image, View } from "react-native"; 
-import { styles } from "./index";
+import { styles } from "@/components/Styles/login_styles";
 import { ScrollView } from "react-native-gesture-handler";
 
 export default function Main(){
@@ -49,7 +49,7 @@ function display_post(post_info: {
     return (
         <View>
             {post_info.images.map((image_url, index) => (
-                <Image key={index} source={require(image_url)} />
+                <Image key={index} source={{ uri: image_url }} />
             ))}
             <Text style={styles.title}>
                 {post_info.title}
