@@ -171,6 +171,33 @@ async def create_post(
        cursor.close()
 
 
+@app.get("/latest_post")
+async def get_latest_post(db: psycopg2.extensions.connection = Depends(get_db)):
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute("SELECT * FROM posts ORDER BY created_at DESC LIMIT 1")
+        post = cursor.fetchone()
+
+        if not post:
+            return {"message": "No posts found"}
+
+        # Convert image_data to a list format for the post
+        if post["image_data"]:
+            # Assuming image_data is a comma-separated string
+            post["image_data"] = post["image_data"].split(",")
+
+        return post
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+    finally:
+        cursor.close()
+
+
 @app.get("/10posts")
 async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
     cursor = db.cursor(cursor_factory=RealDictCursor)
