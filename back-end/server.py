@@ -242,40 +242,6 @@ async def create_club(
     club: ClubCreate,
     db: psycopg2.extensions.connection = Depends(get_db)
 ):
-    cursor = db.cursor(cursor_factory=RealDictCursor)
-    try:
-        from DataBase import generate_club_id
-        cid = generate_club_id()
-        
-        cursor.execute("""
-            INSERT INTO clubs (cid, name, description, logo_url, banner_url,
-                             meeting_location, meeting_time, contact_email,
-                             website_url, instagram_handle, discord_link)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING *
-        """, (
-            cid, club.name, club.description, club.logo_url, club.banner_url,
-            club.meeting_location, club.meeting_time, club.contact_email,
-            club.website_url, club.instagram_handle, club.discord_link
-        ))
-        
-        db.commit()
-        new_club = cursor.fetchone()
-        return new_club
-    except psycopg2.Error as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    finally:
-        cursor.close()
-
-@app.post("/clubs")
-async def create_club(
-    club: ClubCreate,
-    db: psycopg2.extensions.connection = Depends(get_db)
-):
     print("Attempting to create club:", club.dict())  # Add debug logging
     cursor = db.cursor(cursor_factory=RealDictCursor)
     try:
@@ -360,7 +326,7 @@ async def add_tags_to_club(
     #     "0000002",
     #     "0000003"
     # ]
-    
+
 # Add club member
 @app.post("/clubs/members")
 async def add_club_member(
