@@ -2,6 +2,7 @@ import { View, TextInput, Text, TouchableOpacity, Linking } from "react-native"
 import { useRouter } from "expo-router";
 import { config, styles } from "../../Styles/login_styles"
 import { useState } from 'react';
+import { createTextInput } from "@/helpers/Form/createTextInput";
 
 export function LoginForm()
 {
@@ -14,34 +15,21 @@ export function LoginForm()
 
     return (
         <View style={styles.form}>
-            <View style={styles.input}>
-            <Text style={styles.inputLabel}>Email address</Text>
+            
+            {createTextInput({
+                label: 'Email address',
+                onChangeText: email => setForm({ ...form, email }),
+                keyboardType: 'email-address',
+                placeholder: 'john@example.com',
+                value: form.email,
+            })}
 
-            <TextInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                clearButtonMode="while-editing"
-                keyboardType="email-address"
-                onChangeText={email => setForm({ ...form, email })}
-                placeholder="john@example.com"
-                placeholderTextColor="#6b7280"
-                style={styles.inputControl}
-                value={form.email} />
-            </View>
-
-            <View style={styles.input}>
-            <Text style={styles.inputLabel}>Password</Text>
-
-            <TextInput
-                autoCorrect={false}
-                clearButtonMode="while-editing"
-                onChangeText={password => setForm({ ...form, password })}
-                placeholder="********"
-                placeholderTextColor="#6b7280"
-                style={styles.inputControl}
-                secureTextEntry={true}
-                value={form.password} />
-            </View>
+            {createTextInput({
+                label: 'Password',
+                onChangeText: password => setForm({ ...form, password }),
+                placeholder: '********',
+                value: form.password,
+            })}
 
             <View style={styles.formAction}>
                 <TouchableOpacity
