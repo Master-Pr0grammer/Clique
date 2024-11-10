@@ -109,67 +109,77 @@ async def login(login_data: LoginRequest, db: psycopg2.extensions.connection = D
         cursor.close()
 
 
+def encode_file(file_path):
+    """Convert file to binary data"""
+    try:
+        with open(file_path, 'rb') as file:
+            binary_data = file.read()
+        return binary_data
+    except Exception as e:
+        print(f"Error encoding file: {e}")
+        return None
+    
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
 async def create_post(
-   post: PostCreate,
-   db: psycopg2.extensions.connection = Depends(get_db)
+    post: PostCreate,
+    db: psycopg2.extensions.connection = Depends(get_db)
 ):
-   try:
-       cursor = db.cursor(cursor_factory=RealDictCursor)
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        # Look up the club ID based on club_name
+        cursor.execute("SELECT cid FROM clubs WHERE name = %s", (post.club_name,))
+        club = cursor.fetchone()
+        
+        if not club:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Club not found"
+            )
+        
+        # Encode image and video data if file paths are provided
+        image_data_encoded = encode_file(post.image_data) if post.image_data else None
+        video_data_encoded = encode_file(post.video_data) if post.video_data else None
+        
+        # Generate new post ID
+        from DataBase import generate_post_id
+        pid = generate_post_id()
 
-       # Look up the club ID based on club_name
-       cursor.execute("SELECT cid FROM clubs WHERE name = %s", (post.club_name,))
-       club = cursor.fetchone()
-       
-       if not club:
-           raise HTTPException(
-               status_code=status.HTTP_404_NOT_FOUND,
-               detail="Club not found"
-           )
+        # Insert post into the database
+        cursor.execute("""
+            INSERT INTO posts (
+                pid,
+                cid,
+                title,
+                description,
+                image_data,
+                video_data,
+                upvote,
+                downvote,
+                created_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, 0, 0, CURRENT_TIMESTAMP
+            ) RETURNING *
+        """, (
+            pid,
+            club['cid'],
+            post.title,
+            post.description,
+            image_data_encoded,
+            video_data_encoded
+        ))
 
-       # Use the found cid for the post
-       cid = club['cid']
+        db.commit()
+        new_post = cursor.fetchone()
+        return new_post
 
-       # Generate new post ID
-       from DataBase import generate_post_id
-       pid = generate_post_id()
-
-       cursor.execute("""
-           INSERT INTO posts (
-               pid,
-               cid,
-               title,
-               description,
-               image_data,
-               video_data,
-               upvote,
-               downvote,
-               created_at
-           ) VALUES (
-               %s, %s, %s, %s, %s, %s, 0, 0, CURRENT_TIMESTAMP
-           ) RETURNING *
-       """, (
-           pid,
-           cid,
-           post.title,
-           post.description,
-           post.image_data,
-           post.video_data
-       ))
-
-       db.commit()
-       new_post = cursor.fetchone()
-       return new_post
-
-   except psycopg2.Error as e:
-       db.rollback()
-       raise HTTPException(
-           status_code=status.HTTP_400_BAD_REQUEST,
-           detail=f"Database error: {str(e)}"
-       )
-   finally:
-       cursor.close()
-
+    except psycopg2.Error as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database error: {str(e)}"
+        )
+    finally:
+        cursor.close()
 
 @app.get("/10posts")
 async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):

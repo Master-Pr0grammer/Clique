@@ -123,16 +123,6 @@ def connect_to_db():
         print(f"Error connecting to PostgreSQL: {e}")
         return None
 
-def encode_file(file_path):
-    """Convert file to binary data"""
-    try:
-        with open(file_path, 'rb') as file:
-            binary_data = file.read()
-        return binary_data
-    except Exception as e:
-        print(f"Error encoding file: {e}")
-        return None
-
 def create_tables(connection):
     try:
         cursor = connection.cursor()
