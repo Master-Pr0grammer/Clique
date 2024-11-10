@@ -23,62 +23,83 @@ global_post_id = 0
 # TAG ID'S
 global_tag_id = 0
 
+
+def check_id_exists(table: str, column: str, value: str):
+    """Check if a specific ID exists in a given table and column."""
+    connection = connect_to_db()
+    cursor = connection.cursor()
+    cursor.execute(f"SELECT 1 FROM {table} WHERE {column} = %s", (value,))
+    exists = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    return exists is not None
+
 def generate_club_id():
+    """Generate a unique club ID, formatted as 7 digits, ensuring uniqueness in the database."""
     global global_club_id
-    result = str(global_club_id).zfill(7)
-    result = f'{global_club_id:07d}'
-    result = '{:07d}'.format(global_club_id)
-
-    global_club_id += 1
-
-    return result 
+    while True:
+        # Format the ID to be a 7-digit string
+        result = '{:07d}'.format(global_club_id)
+        
+        # Check if the ID already exists in the clubs table
+        if not check_id_exists("clubs", "cid", result):
+            global_club_id += 1
+            return result
+        else:
+            # Retry by incrementing the global_club_id
+            global_club_id += 1
 
 def generate_user_id():
+    """Generate a unique user ID, formatted as 7 digits."""
     global global_user_id
-    result = str(global_user_id).zfill(7)
-    result = f'{global_user_id:07d}'
-    result = '{:07d}'.format(global_user_id)
-
-    global_user_id += 1
-
-    return result 
+    while True:
+        result = '{:07d}'.format(global_user_id)
+        
+        # Check if the ID already exists in the users table
+        if not check_id_exists("users", "uid", result):
+            global_user_id += 1
+            return result
+        else:
+            global_user_id += 1
 
 def generate_club_member_id():
+    """Generate a unique club member ID, formatted as 7 digits."""
     global global_club_member_id
-    result = str(global_club_member_id).zfill(7)
-    result = f'{global_club_member_id:07d}'
-    result = '{:07d}'.format(global_club_member_id)
-
-    global_club_member_id += 1
-
-    return result 
+    while True:
+        result = '{:07d}'.format(global_club_member_id)
+        
+        # Check if the ID already exists in the club_members table
+        if not check_id_exists("club_members", "cmid", result):
+            global_club_member_id += 1
+            return result
+        else:
+            global_club_member_id += 1
 
 def generate_post_id():
+    """Generate a unique post ID, formatted as 7 digits."""
     global global_post_id
-    result = str(global_post_id).zfill(7)
-    result = f'{global_post_id:07d}'
-    result = '{:07d}'.format(global_post_id)
-
-    global_post_id += 1
-
-    return result 
+    while True:
+        result = '{:07d}'.format(global_post_id)
+        
+        # Check if the ID already exists in the posts table
+        if not check_id_exists("posts", "pid", result):
+            global_post_id += 1
+            return result
+        else:
+            global_post_id += 1
 
 def generate_tag_id():
+    """Generate a unique tag ID, formatted as 7 digits."""
     global global_tag_id
-    result = str(global_tag_id).zfill(7)
-    result = f'{global_tag_id:07d}'
-    result = '{:07d}'.format(global_tag_id)
-
-    global_tag_id += 1
-
-    return result 
-
-# ///////////////////////////////////
-# ///////////////////////////////////
-# ///////////////////////////////////
-
-
-
+    while True:
+        result = '{:07d}'.format(global_tag_id)
+        
+        # Check if the ID already exists in the tags table
+        if not check_id_exists("tags", "tid", result):
+            global_tag_id += 1
+            return result
+        else:
+            global_tag_id += 1
 
 
 
@@ -129,8 +150,7 @@ def create_tables(connection):
                 major VARCHAR(100),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP,
-                profile_image VARCHAR(255),
-                is_admin BOOLEAN
+                profile_image VARCHAR(255)
             );
         """)
         
@@ -176,6 +196,7 @@ def create_tables(connection):
                 cmid VARCHAR(7) PRIMARY KEY,
                 cid VARCHAR(7) REFERENCES clubs(cid),
                 uid VARCHAR(7) REFERENCES users(uid),
+                is_admin BOOLEAN,
                 UNIQUE (cid, uid)
             );
         """)

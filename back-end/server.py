@@ -9,15 +9,16 @@ from DataBase import connect_to_db  # Import your existing database connection
 
 app = FastAPI()
 
-# Pydantic models for request/response validation
+# Define the Pydantic model for user creation
 class UserCreate(BaseModel):
     rcs_id: str
-    email: EmailStr
+    email: str
     password: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    graduation_year: Optional[int] = None
-    major: Optional[str] = None
+    first_name: str
+    last_name: str
+    graduation_year: int
+    major: str
+    profile_image: Optional[str] = None  # Optional field for profile image URL
 
 class ClubCreate(BaseModel):
     name: str
@@ -30,6 +31,8 @@ class ClubCreate(BaseModel):
     website_url: Optional[str] = None
     instagram_handle: Optional[str] = None
     discord_link: Optional[str] = None
+    user_email: str
+    password: str
 
 class PostCreate(BaseModel):
     cid: str
@@ -197,7 +200,7 @@ async def get_club_homepage(
     finally:
         cursor.close()
 
-# Create new user
+# Create new user endpoint
 @app.post("/users")
 async def create_user(
     user: UserCreate,
@@ -214,45 +217,49 @@ async def create_user(
         from DataBase import generate_user_id
         uid = generate_user_id()
         
+        # Insert new user into the database
         cursor.execute("""
             INSERT INTO users (uid, rcs_id, email, password_hash, 
-                             first_name, last_name, graduation_year, major)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                               firstname, lastname, graduation_year, major, profile_image, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
             RETURNING *
         """, (
             uid, user.rcs_id, user.email, password_hash.decode('utf-8'),
-            user.first_name, user.last_name, user.graduation_year, user.major
+            user.first_name, user.last_name, user.graduation_year, user.major,
+            user.profile_image
         ))
-        
-        db.commit()
+
+        # Fetch and return the newly inserted user data
         new_user = cursor.fetchone()
+        db.commit()
+        
         return new_user
-    except psycopg2.Error as e:
+
+    except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        return {"error": str(e)}
     finally:
         cursor.close()
 
-# Create new club
+#Create new club
+# would need to do it like this http://localhost:8000/clubs?user_uid=12345
 @app.post("/clubs")
 async def create_club(
     club: ClubCreate,
     db: psycopg2.extensions.connection = Depends(get_db)
 ):
-    print("Attempting to create club:", club.dict())  # Add debug logging
+    from DataBase import generate_club_member_id
     cursor = db.cursor(cursor_factory=RealDictCursor)
     try:
+        # Generate club ID
         from DataBase import generate_club_id
         cid = generate_club_id()
-        print("Generated CID:", cid)  # Add debug logging
-        
+
+        # Insert the new club into the clubs table
         query = """
             INSERT INTO clubs (cid, name, description, logo_url, banner_url,
-                             meeting_location, meeting_time, contact_email,
-                             website_url, instagram_handle, discord_link)
+                               meeting_location, meeting_time, contact_email,
+                               website_url, instagram_handle, discord_link)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
         """
@@ -261,18 +268,47 @@ async def create_club(
             club.meeting_location, club.meeting_time, club.contact_email,
             club.website_url, club.instagram_handle, club.discord_link
         )
-        print("Executing query with values:", values)  # Add debug logging
         
         cursor.execute(query, values)
         db.commit()
         new_club = cursor.fetchone()
-        return new_club
-    except Exception as e:  # Catch all exceptions for debugging
-        print(f"Error creating club: {str(e)}")  # Add debug logging
+
+        
+        cursor.execute("""
+            SELECT uid FROM users
+                where email = %s AND password_hash = %s
+        """, (club.user_email, club.password))
+
+        result = cursor.fetchone()
+        if result:
+            uid = result['uid']
+            cmid = generate_club_member_id()
+
+            cursor.execute("""
+            INSERT INTO club_members (cmid, cid, uid, is_admin)
+            VALUES (%s, %s, %s, %s)
+            RETURNING *
+            """, (cmid, cid, uid, True))  # Set the user as admin
+            
+
+        # Create a new club member for the user who created the club (is_admin = True)
+        cmid = generate_club_member_id()
+
+
+        db.commit()
+        new_club_member = cursor.fetchone()
+
+        # Return the newly created club and club member (user)
+        return {
+            "club": new_club,
+            "club_member": new_club_member
+        }
+
+    except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail=f"Error creating club: {str(e)}"
         )
     finally:
         cursor.close()
