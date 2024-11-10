@@ -48,7 +48,6 @@ class ClubCreate(BaseModel):
 
 class PostCreate(BaseModel):
     club_name: str
-    cid: str
     title: str
     description: Optional[str] = None
     image_data: Optional[str] = None
@@ -178,18 +177,27 @@ async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
     try:
         cursor.execute("SELECT * FROM posts ORDER BY created_at DESC LIMIT 10")
         posts = cursor.fetchall()
-        
+
         if not posts:
             return {"message": "No posts found"}
+
+        # Convert image_data to a list format for each post
+        for post in posts:
+            if post["image_data"]:
+                # Assuming image_data is a comma-separated string
+                post["image_data"] = post["image_data"].split(",")
 
         return posts
     
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
     finally:
         cursor.close()
+
 # Get all clubs
 @app.get("/clubs")
 async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
