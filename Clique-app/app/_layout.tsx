@@ -9,6 +9,7 @@ export default function RootLayout() {
         <Stack.Screen name="login" />
         <Stack.Screen name="forgot_password" />
         <Stack.Screen name="signup" />
+        <Stack.Screen name="club_signup" />
       </Stack>
     </GestureHandlerRootView>
   );

@@ -1,119 +1,88 @@
-import {StyleSheet, Text, Image, View, ScrollView } from "react-native"; 
+import React, { useState } from "react";
+import { StyleSheet, Text, View, ScrollView } from "react-native"; 
 import GallerySwiper from "react-native-gallery-swiper";
 
-const image1 = 'https://picsum.photos/id/1019/1000/600/';
-const image2 = 'https://picsum.photos/id/1015/1000/600/';
-const image3 = 'https://picsum.photos/id/1019/1000/600/';
+type ResizeModeType = 'cover' | 'contain';
 
 export default function Index() {
+    const [resize, setResize] = useState<ResizeModeType>('cover');
+
+    const handleSingleTap = () => {
+        setResize((prevResize) => (prevResize === 'cover' ? 'contain' : 'cover'));
+    };
+
     const posts = get_posts();
     return (
-        <ScrollView contentContainerStyle={{justifyContent: 'space-around', gap: 20}}>
+        <ScrollView contentContainerStyle={{ justifyContent: 'space-around', gap: 20 }}>
             {posts.map((post, index) => (
                 <View key={index}>
-                    {display_post(post)}
+                    {display_post(post, handleSingleTap, resize)}
                 </View>
             ))}
         </ScrollView>
     );
 }
 
-//TODO: Implement database call
+// Function to simulate a database call
 function get_posts() {
     return [
         {
-            images: [image1, image2],
+            images: ['https://picsum.photos/id/1019/1000/600/', 'https://picsum.photos/id/1015/1000/600/'],
             title: 'New York Pic',
             text: 'Picture from NY trip',
         },
         {
-            images: [image2],
+            images: ['https://picsum.photos/id/1015/1000/600/'],
             title: 'Mount Everest',
             text: 'Tall mountain bro',
         },
         {
-            images: [image3],
+            images: ['https://picsum.photos/id/1019/1000/600/'],
             title: 'RPI, am I right',
             text: 'Picture of RPI building',
         },
     ];
 }
 
-function display_post(post_info: {
-    images: string[];
-    title: string;
-    text: string;
-}) {
-    const images:string[] = [];
-
-    for(var i = 0; i<post_info.images.length; i++){
-        images.push(post_info.images[i]);
-    }
-
-
-    const aspect_ratio = findLowestAspectRatio(images);
-    const gallery_style = StyleSheet.create({gallery:{
-        flex: 1,
-        flexShrink: 1,
-        aspectRatio: Number(aspect_ratio),
-        }
-    });
-
+function display_post(
+    post_info: {
+        images: string[];
+        title: string;
+        text: string;
+    },
+    handleSingleTap: () => void,
+    resize: ResizeModeType
+) {
+    // Map images dynamically for better flexibility
+    const images = post_info.images.map(image => ({ uri: image }));
 
     return (
         <View style={post_style.container}>
-            <Text style={post_style.title}>
-                {post_info.title}
-            </Text>
-            <GallerySwiper style={gallery_style.gallery}
-                images={[
-                    // Version *1.1.0 update (or greater versions): 
-                    // Can be used with different image object fieldnames.
-                    // Ex. source, source.uri, uri, URI, url, URL
-                    { uri: "https://picsum.photos/id/1018/1000/600/" },
+            <Text style={post_style.title}>{post_info.title}</Text>
+            <GallerySwiper 
+                onSingleTapConfirmed={handleSingleTap}
+                resizeMode={resize}
+                style={post_style.gallery}
+                images={[{ uri: "https://picsum.photos/id/1018/1000/600/" },
                     { uri: "https://picsum.photos/id/1015/1000/600/" },
-                    { uri: "https://luehangs.site/pic-chat-app-images/beautiful-blond-blonde-hair-478544.jpg" },
-                ]}
+                    { uri: "https://luehangs.site/pic-chat-app-images/beautiful-blond-blonde-hair-478544.jpg" },]}
                 enableTranslate={false}
+                // Optional: React key that updates when resize changes to force a re-render without resetting
+                key={resize} 
             />
         </View>
     );
 }
 
 
-const findLowestAspectRatio = async (imageUrls: string[]): Promise<number | null> => {
-    try {
-      const aspectRatios = await Promise.all(
-        imageUrls.map(url =>
-          new Promise<number>((resolve, reject) => {
-            Image.getSize(
-              url,
-              (width, height) => resolve(width / height),
-              reject
-            );
-          })
-        )
-      );
-  
-      const minAspectRatio = Math.min(...aspectRatios);
-      return minAspectRatio;
-    } catch (error) {
-      console.error("Error loading image dimensions:", error);
-      return null;
-    }
-};
-
 export const post_style = StyleSheet.create({
     container: {
-        paddingVertical: '1.5%',
-        //marginVertical:'2%',
-        marginHorizontal:'2%',
+        marginHorizontal: '2%',
         flexGrow: 1,
         flexShrink: 1,
         flex: 1,
-        backgroundColor:'#333',
+        backgroundColor: '#333',
         borderRadius: 20,
-        //aspectRatio: 4 / 3,
     },
     title: {
         paddingTop: 24,
@@ -121,13 +90,10 @@ export const post_style = StyleSheet.create({
         fontWeight: '700',
         color: 'white',
         marginBottom: 6,
-        paddingHorizontal:20
+        paddingHorizontal: 20,
     },
-    gallery:{
-        //marginHorizontal:25,
+    gallery: {
         flex: 1,
         flexShrink: 1,
-        //minHeight: '100%',
-        aspectRatio: 2 / 3,
     }
-})
+});
