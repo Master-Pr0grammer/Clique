@@ -1,16 +1,16 @@
-import { SafeAreaView, StyleSheet, Text, TextInput, Image, View } from "react-native"; 
+import { SafeAreaView, StyleSheet, Text, TextInput, Image, View, ScrollView } from "react-native"; 
 import { styles } from "@/components/Styles/login_styles";
-import { ScrollView } from "react-native-gesture-handler";
 import GallerySwiper from "react-native-gallery-swiper";
+import { useState } from "react";
 
-const image1 = require('../assets/images/test_posts/image1.png');
-const image2 = require('../assets/images/test_posts/image2.png');
-const image3 = require('../assets/images/test_posts/image3.png');
+const image1 = 'https://picsum.photos/id/1019/1000/600/';
+const image2 = 'https://picsum.photos/id/1015/1000/600/';
+const image3 = 'https://picsum.photos/id/1019/1000/600/';
 
 export default function Index() {
     const posts = get_posts();
     return (
-        <ScrollView>
+        <ScrollView contentContainerStyle={{justifyContent: 'space-around', gap: 20}}>
             {posts.map((post, index) => (
                 <View key={index}>
                     {display_post(post)}
@@ -42,24 +42,94 @@ function get_posts() {
 }
 
 function display_post(post_info: {
-    images: any[];
+    images: string[];
     title: string;
     text: string;
 }) {
+    const images:string[] = [];
+
+    for(var i = 0; i<post_info.images.length; i++){
+        images.push(post_info.images[i]);
+    }
+
+
+    const aspect_ratio = findLowestAspectRatio(images);
+    const gallery_style = StyleSheet.create({gallery:{
+        flex: 1,
+        flexShrink: 1,
+        aspectRatio: Number(aspect_ratio),
+        }
+    });
+
+
     return (
-        <View>
-            <GallerySwiper
-                images={post_info.images.map((image_path) => ({
-                    source: image_path,
-                    dimensions: { width: 1080, height: 1920 },
-                }))}
-            />
-            <Text style={styles.title}>
+        <View style={post_style.container}>
+            <Text style={post_style.title}>
                 {post_info.title}
             </Text>
-            <Text>
-                {post_info.text}
-            </Text>
+            <GallerySwiper style={gallery_style.gallery}
+                images={[
+                    // Version *1.1.0 update (or greater versions): 
+                    // Can be used with different image object fieldnames.
+                    // Ex. source, source.uri, uri, URI, url, URL
+                    { uri: "https://picsum.photos/id/1018/1000/600/" },
+                    { uri: "https://picsum.photos/id/1015/1000/600/" },
+                    { uri: "https://luehangs.site/pic-chat-app-images/beautiful-blond-blonde-hair-478544.jpg" },
+                ]}
+                enableTranslate={false}
+            />
         </View>
     );
 }
+
+
+const findLowestAspectRatio = async (imageUrls: string[]): Promise<number | null> => {
+    try {
+      const aspectRatios = await Promise.all(
+        imageUrls.map(url =>
+          new Promise<number>((resolve, reject) => {
+            Image.getSize(
+              url,
+              (width, height) => resolve(width / height),
+              reject
+            );
+          })
+        )
+      );
+  
+      const minAspectRatio = Math.min(...aspectRatios);
+      return minAspectRatio;
+    } catch (error) {
+      console.error("Error loading image dimensions:", error);
+      return null;
+    }
+};
+
+export const post_style = StyleSheet.create({
+    container: {
+        paddingVertical: '1.5%',
+        //marginVertical:'2%',
+        marginHorizontal:'2%',
+        flexGrow: 1,
+        flexShrink: 1,
+        flex: 1,
+        backgroundColor:'#333',
+        borderRadius: 20,
+        //aspectRatio: 4 / 3,
+    },
+    title: {
+        paddingTop: 24,
+        fontSize: 31,
+        fontWeight: '700',
+        color: 'white',
+        marginBottom: 6,
+        paddingHorizontal:20
+    },
+    gallery:{
+        //marginHorizontal:25,
+        flex: 1,
+        flexShrink: 1,
+        //minHeight: '100%',
+        aspectRatio: 2 / 3,
+    }
+})
