@@ -541,6 +541,44 @@ async def add_club_member(
     finally:
         cursor.close()
 
+
+# Define the model for the incoming JSON data
+class UserCredentials(BaseModel):
+    email: str
+    password_hash: str
+
+@app.get("/check_user")
+async def check_user(credentials: UserCredentials, db: psycopg2.extensions.connection = Depends(get_db)):
+    try:
+        cursor = db.cursor(cursor_factory=RealDictCursor)
+        
+        # Query the database to check for a matching user
+        cursor.execute("""
+            SELECT * FROM users
+            WHERE email = %s AND password_hash = %s
+        """, (credentials.email, credentials.password_hash))
+        
+        user = cursor.fetchone()
+
+        # If no matching user is found, return an error
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # If user is found, return a success message
+        return {"message": "User found", "status_code": status.HTTP_200_OK}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+    finally:
+        cursor.close()
+        db.close()
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
