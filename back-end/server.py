@@ -118,7 +118,7 @@ async def create_post(
        cursor = db.cursor(cursor_factory=RealDictCursor)
 
        # Look up the club ID based on club_name
-       cursor.execute("SELECT cid FROM clubs WHERE title = %s", (post.club_name,))
+       cursor.execute("SELECT cid FROM clubs WHERE name = %s", (post.club_name,))
        club = cursor.fetchone()
        
        if not club:
