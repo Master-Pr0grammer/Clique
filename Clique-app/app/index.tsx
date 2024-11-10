@@ -1,8 +1,13 @@
 import { SafeAreaView, StyleSheet, Text, TextInput, Image, View } from "react-native"; 
 import { styles } from "@/components/Styles/login_styles";
 import { ScrollView } from "react-native-gesture-handler";
+import GallerySwiper from "react-native-gallery-swiper";
 
-export default function Index(){
+const image1 = require('../assets/images/test_posts/image1.png');
+const image2 = require('../assets/images/test_posts/image2.png');
+const image3 = require('../assets/images/test_posts/image3.png');
+
+export default function Index() {
     const posts = get_posts();
     return (
         <ScrollView>
@@ -12,45 +17,43 @@ export default function Index(){
                 </View>
             ))}
         </ScrollView>
-    )
+    );
 }
 
 //TODO: Implement database call
-function get_posts(){
+function get_posts() {
     return [
         {
-            'images':['../assets/images/test_posts/image1.png'], 
-            'title':'New York Pic',
-            'text':'Picture from NY trip'
+            images: [image1, image2],
+            title: 'New York Pic',
+            text: 'Picture from NY trip',
         },
-
         {
-            'images':['../assets/images/test_posts/image2.png'], 
-            'title':'Mount Everest',
-            'text':'Tall mountain bro'
+            images: [image2],
+            title: 'Mount Everest',
+            text: 'Tall mountain bro',
         },
-
         {
-            'images':['../assets/images/test_posts/image3.png'], 
-            'title':'RPI, am I right',
-            'text':'Picture of RPI building'
-        }
-    ]
+            images: [image3],
+            title: 'RPI, am I right',
+            text: 'Picture of RPI building',
+        },
+    ];
 }
 
 function display_post(post_info: {
-    images: string[];
+    images: any[];
     title: string;
     text: string;
-}){
-    post_info.images.map((image_url, index) => (
-        console.log(image_url)
-    ))
+}) {
     return (
         <View>
-            {post_info.images.map((image_url, index) => (
-                <Image key={index} source={{ uri: image_url }} />
-            ))}
+            <GallerySwiper
+                images={post_info.images.map((image_path) => ({
+                    source: image_path,
+                    dimensions: { width: 1080, height: 1920 },
+                }))}
+            />
             <Text style={styles.title}>
                 {post_info.title}
             </Text>
@@ -58,7 +61,5 @@ function display_post(post_info: {
                 {post_info.text}
             </Text>
         </View>
-    )
+    );
 }
-
-
