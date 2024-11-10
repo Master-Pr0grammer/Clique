@@ -1,87 +1,47 @@
-import { styles } from "@/components/Styles/login_styles";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native"; 
+import { useState } from "react";
+import { StyleSheet, Text, View, ScrollView } from "react-native"; 
 import GallerySwiper from "react-native-gallery-swiper";
 
 type ResizeModeType = 'cover' | 'contain';
 
-type Post = {
-    images: string[];
-    title: string;
-    text: string;
-};
-
 export default function Index() {
-    const router = useRouter();
     const [resize, setResize] = useState<ResizeModeType>('cover');
-    const [posts, setPosts] = useState<Post[] | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Fetch posts from the server
-        const fetchPosts = async () => {
-            try {
-                const response = await fetch('http://128.213.71.72:8080/10posts', 
-                    {
-                        method: 'GET',
-                        mode: 'cors',
-                    } 
-                );
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-                const data = await response.json();
-                setPosts(data);
-            } catch (error) {
-                console.error("Error fetching posts:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchPosts();
-    }, []);
 
     const handleSingleTap = () => {
         setResize((prevResize) => (prevResize === 'cover' ? 'contain' : 'cover'));
     };
 
+    const posts = get_posts();
     return (
-        <View style={{ flex: 1 }}>
-            {loading ? (
-                <ActivityIndicator size="large" color="#8B0000" />
-            ) : posts && posts.length > 0 ? (
-                <ScrollView contentContainerStyle={{ justifyContent: 'space-around', gap: 20 }}>
-                    {posts.map((post, index) => (
-                        <View key={index}>
-                            {display_post(post, handleSingleTap, 'cover')}
-                        </View>
-                    ))}
-                </ScrollView>
-            ) : (
-                <Text style={{ textAlign: 'center', marginTop: 20 }}>No posts available.</Text>
-            )}
-
-            <TouchableOpacity
-                onPress={() => {
-                    router.navigate('/createpost');
-                }}>
-                <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingVertical: 10,
-                        paddingHorizontal: 20,
-                        borderWidth: 1,
-                        backgroundColor: '#8B0000',
-                        borderColor: '#8B0000',
-                    }}>
-                    <Text style={{ color: 'white', fontSize: 16 }}>Create Post</Text>
+        <ScrollView contentContainerStyle={{ justifyContent: 'space-around', gap: 20 }}>
+            {posts.map((post, index) => (
+                <View key={index}>
+                    {display_post(post, handleSingleTap, resize)}
                 </View>
-            </TouchableOpacity>
-        </View>
+            ))}
+        </ScrollView>
     );
+}
+
+// Function to simulate a database call
+function get_posts() {
+    return [
+        {
+            images: ['https://picsum.photos/id/1019/1000/600/', 'https://picsum.photos/id/1015/1000/600/'],
+            title: 'New York Pic',
+            text: 'Picture from NY trip',
+        },
+        {
+            images: ['https://picsum.photos/id/1015/1000/600/'],
+            title: 'Mount Everest',
+            text: 'Tall mountain bro',
+        },
+        {
+            images: ['https://picsum.photos/id/1019/1000/600/'],
+            title: 'RPI, am I right',
+            text: 'Picture of RPI building',
+        },
+    ];
 }
 
 function display_post(
@@ -103,11 +63,14 @@ function display_post(
                 onSingleTapConfirmed={handleSingleTap}
                 resizeMode={resize}
                 style={post_style.gallery}
-                images={images}
+                images={[{ uri: "https://picsum.photos/id/1018/1000/600/" },
+                    { uri: "https://picsum.photos/id/1015/1000/600/" },
+                    { uri: "https://luehangs.site/pic-chat-app-images/beautiful-blond-blonde-hair-478544.jpg" },]}
                 enableTranslate={false}
                 // Optional: React key that updates when resize changes to force a re-render without resetting
                 key={resize} 
             />
+            <Text style={post_style.subtitle}>{post_info.text}</Text>
         </View>
     );
 }
@@ -115,11 +78,12 @@ function display_post(
 
 export const post_style = StyleSheet.create({
     container: {
+        marginVertical:'2%',
         marginHorizontal: '2%',
         flexGrow: 1,
         flexShrink: 1,
         flex: 1,
-        backgroundColor: '#333',
+        backgroundColor: '#8B0000',
         borderRadius: 20,
     },
     title: {
@@ -133,5 +97,13 @@ export const post_style = StyleSheet.create({
     gallery: {
         flex: 1,
         flexShrink: 1,
-    }
+    },
+    subtitle: {
+        paddingTop: 5,
+        paddingBottom: 10,
+        paddingHorizontal: 20,
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#d4d4d4',
+      },
 });
