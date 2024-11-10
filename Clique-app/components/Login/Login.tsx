@@ -1,6 +1,6 @@
 import { styles } from '../Styles/login_styles';
 import { LoginHeader } from './login_components/header';
-import { LoginForm } from './login_components/form';
+import { LoginForm } from './login_components/login_form';
 import { SignUp } from './login_components/signup';
 import {
   SafeAreaView,

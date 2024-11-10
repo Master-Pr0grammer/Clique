@@ -1,5 +1,11 @@
 import { StyleSheet } from "react-native";
 
+export const config = {
+    baseURL: process.env.NODE_ENV === 'production' 
+        ? 'https://your-production-domain.com' 
+        : 'http://localhost:8081',
+};
+
 export const styles = StyleSheet.create({
     container: {
       paddingVertical: 24,

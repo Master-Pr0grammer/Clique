@@ -18,6 +18,6 @@ export function LoginHeader()
             <Text style={styles.subtitle}>
                 Become part of the community!
             </Text>
-            </View>
+        </View>
     );
 }
