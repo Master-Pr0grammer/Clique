@@ -2,6 +2,82 @@ import psycopg2
 from psycopg2 import Error
 from datetime import datetime
 import bcrypt
+import random
+
+# ///////////////////////////////////
+# GLOBAL DICTIONARY OF EXISTING ID'S
+# ///////////////////////////////////
+
+# CLUB ID'S
+global_club_id = 0
+
+# USER ID'S
+global_user_id = 0
+
+# CLUB MEMBER ID'S
+global_club_member_id = 0
+
+# POST ID'S
+global_post_id = 0
+
+# TAG ID'S
+global_tag_id = 0
+
+def generate_club_id():
+
+    result = str(global_club_id).zfill(7)
+    result = f'{global_club_id:07d}'
+    result = '{:07d}'.format(global_club_id)
+
+    global_club_id += 1
+
+    return result 
+
+def generate_user_id():
+
+    result = str(global_user_id).zfill(7)
+    result = f'{global_user_id:07d}'
+    result = '{:07d}'.format(global_user_id)
+
+    global_user_id += 1
+
+    return result 
+
+def generate_club_member_id():
+
+    result = str(global_club_member_id).zfill(7)
+    result = f'{global_club_member_id:07d}'
+    result = '{:07d}'.format(global_club_member_id)
+
+    global_club_member_id += 1
+
+    return result 
+
+def generate_post_id():
+
+    result = str(global_post_id).zfill(7)
+    result = f'{global_post_id:07d}'
+    result = '{:07d}'.format(global_post_id)
+
+    global_post_id += 1
+
+    return result 
+
+def generate_tag_id():
+
+    result = str(global_tag_id).zfill(7)
+    result = f'{global_tag_id:07d}'
+    result = '{:07d}'.format(global_tag_id)
+
+    global_tag_id += 1
+
+    return result 
+
+# ///////////////////////////////////
+# ///////////////////////////////////
+# ///////////////////////////////////
+
+
 
 def connect_to_db():
     try:
@@ -17,6 +93,7 @@ def connect_to_db():
         print(f"Error connecting to PostgreSQL: {e}")
         return None
 
+
 def create_tables(connection):
     """Create necessary tables if they don't exist"""
     try:
@@ -25,7 +102,7 @@ def create_tables(connection):
         # Create users table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                uid SERIAL PRIMARY KEY,
+                uid VARCHAR(7) PRIMARY KEY,
                 rcs_id VARCHAR(50) UNIQUE NOT NULL,
                 email VARCHAR(255) NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
@@ -37,10 +114,10 @@ def create_tables(connection):
             );
         """)
         
-        # Create clubs table (enhanced from original)
+        # Create clubs table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS clubs (
-                cid SERIAL PRIMARY KEY,
+                cid VARCHAR(7) PRIMARY KEY,
                 name VARCHAR(255) UNIQUE NOT NULL,
                 description TEXT,
                 logo_url VARCHAR(255),
@@ -59,7 +136,7 @@ def create_tables(connection):
         # Create tags table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS tags (
-                tag_id SERIAL PRIMARY KEY,
+                tid VARCHAR(7) PRIMARY KEY,
                 name VARCHAR(50) UNIQUE NOT NULL
             );
         """)
@@ -67,35 +144,65 @@ def create_tables(connection):
         # Create club_tags table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS club_tags (
-                cid INTEGER REFERENCES clubs(cid),
-                tag_id INTEGER REFERENCES tags(tag_id),
-                PRIMARY KEY (cid, tag_id)
+                cid VARCHAR(7) REFERENCES clubs(cid),
+                tid VARCHAR(7) REFERENCES tags(tid),
+                PRIMARY KEY (cid, tid)
             );
         """)
         
-        # Create club_members table with roles
+        # Create club_members table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS club_members (
-                cid INTEGER REFERENCES clubs(cid),
-                uid INTEGER REFERENCES users(uid),
+                cmid VARCHAR(7),
+                cid VARCHAR(7) REFERENCES clubs(cid),
+                uid VARCHAR(7) REFERENCES users(uid),
                 role VARCHAR(50) NOT NULL,  -- 'admin', 'officer', 'member'
                 joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (cid, uid)
+                PRIMARY KEY (cmid, cid, uid)
             );
         """)
         
-        # Create club_events table
+        # Create posts table
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS club_events (
-                event_id SERIAL PRIMARY KEY,
-                cid INTEGER REFERENCES clubs(cid),
+            CREATE TABLE IF NOT EXISTS posts (
+                pid VARCHAR(7) PRIMARY KEY,
+                cid VARCHAR(7) REFERENCES clubs(cid),
                 title VARCHAR(255) NOT NULL,
                 description TEXT,
+                image_url VARCHAR(255),
+                video_url VARCHAR(255),
                 location VARCHAR(255),
-                event_time TIMESTAMP NOT NULL,
+                upvote INTEGER DEFAULT 0,
+                downvote INTEGER DEFAULT 0,
+                event_time TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+
+        # Create user_notifications table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_notifications (
+                pid VARCHAR(7) REFERENCES posts(pid),
+                cmid VARCHAR(7) REFERENCES club_members(cmid),
+                PRIMARY KEY (pid, cmid)
+            );
+
+        """
+        )
+
+        # Create comments table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS comments (
+                pid VARCHAR(7) REFERENCES posts(pid),
+                cmid VARCHAR(7) REFERENCES club_members(cmid),
+                upvotes INTEGER DEFAULT 0,
+                downvotes INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY pid
+            );
+
+        """
+        )
         
         connection.commit()
         print("Tables created successfully")
