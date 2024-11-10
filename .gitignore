@@ -1,5 +1,6 @@
 node_modules/
 app-example/
+env/
 package-lock.json
 package.json
 .expo/
