@@ -108,15 +108,15 @@ async def login(login_data: LoginRequest, db: psycopg2.extensions.connection = D
         cursor.close()
 
 
-# def encode_file(file_path):
-#     """Convert file to binary data"""
-#     try:
-#         with open(file_path, 'rb') as file:
-#             binary_data = file.read()
-#         return binary_data
-#     except Exception as e:
-#         print(f"Error encoding file: {e}")
-#         return None
+def encode_file(file_path):
+    """Convert file to binary data"""
+    try:
+        with open(file_path, 'rb') as file:
+            binary_data = file.read()
+        return binary_data
+    except Exception as e:
+        print(f"Error encoding file: {e}")
+        return None
     
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
 async def create_post(
@@ -136,8 +136,8 @@ async def create_post(
             )
         
         # Encode image and video data if file paths are provided
-        image_data_encoded = post.image_data if post.image_data else None
-        video_data_encoded = post.video_data if post.video_data else None
+        image_data_encoded = encode_file(post.image_data) if post.image_data else None
+        video_data_encoded = encode_file(post.video_data) if post.video_data else None
         
         # Generate new post ID
         from DataBase import generate_post_id
@@ -358,9 +358,7 @@ async def create_user(
     cursor = db.cursor(cursor_factory=RealDictCursor)
     try:
         # Hash password
-        password_bytes = user.password_hash.encode('utf-8')
-        salt = bcrypt.gensalt()
-        password_hash = bcrypt.hashpw(password_bytes, salt)
+
         
         # Generate user ID using your existing function
         from DataBase import generate_user_id
@@ -373,7 +371,7 @@ async def create_user(
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
             RETURNING *
         """, (
-            uid, user.rcs_id, user.email, password_hash.decode('utf-8'),
+            uid, user.rcs_id, user.email, user.password_hash,
             user.firstname, user.lastname, user.graduation_year, user.major,
             user.profile_image
         ))
