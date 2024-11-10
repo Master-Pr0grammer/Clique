@@ -140,6 +140,8 @@ async def create_post(
                cid,
                title,
                description,
+               image_data,
+               video_data,
                upvote,
                downvote,
                created_at
