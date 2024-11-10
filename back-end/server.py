@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, status, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, validator
 from typing import List, Optional
 from datetime import datetime
 import bcrypt
@@ -49,8 +49,18 @@ class PostCreate(BaseModel):
     club_name: str
     title: str
     description: Optional[str] = None
-    image_data: Optional[str] = None
-    video_data: Optional[str] = None
+    image_data: Optional[str] = None  # Base64 encoded image string
+    video_data: Optional[str] = None  # Base64 encoded video string
+
+    @validator("image_data", "video_data", pre=True)
+    def validate_base64(cls, value):
+        if value:
+            try:
+                # Try to decode to verify it's valid base64
+                base64.b64decode(value)
+            except Exception:
+                raise ValueError("Invalid base64 encoding")
+        return value
     
 
 
@@ -74,6 +84,21 @@ async def get_db():
     finally:
         conn.close()
 
+async def encode_file_data(file_data: str) -> Optional[str]:
+    """
+    Safely encode file data that's already in base64 format
+    """
+    if not file_data:
+        return None
+    try:
+        # The data should already be base64 encoded from the client
+        # Just verify it's valid base64 and return as is
+        base64.b64decode(file_data)  # Validation check
+        return file_data
+    except Exception as e:
+        print(f"Error processing file data: {e}")
+        return None
+    
 # Login endpoint
 @app.post("/login")
 async def login(login_data: LoginRequest, db: psycopg2.extensions.connection = Depends(get_db)):
@@ -135,9 +160,9 @@ async def create_post(
                 detail="Club not found"
             )
         
-        # Encode image and video data if file paths are provided
-        image_data_encoded = encode_file(post.image_data) if post.image_data else None
-        video_data_encoded = encode_file(post.video_data) if post.video_data else None
+        # Process the image and video data
+        image_data = await encode_file_data(post.image_data)
+        video_data = await encode_file_data(post.video_data)
         
         # Generate new post ID
         from DataBase import generate_post_id
@@ -163,13 +188,22 @@ async def create_post(
             club['cid'],
             post.title,
             post.description,
-            image_data_encoded,
-            video_data_encoded
+            image_data,
+            video_data
         ))
 
         db.commit()
         new_post = cursor.fetchone()
-        return new_post
+        
+        # Prepare the response
+        response_post = dict(new_post)
+        # Don't send back the raw binary data in the response
+        if response_post.get('image_data'):
+            response_post['image_data'] = True
+        if response_post.get('video_data'):
+            response_post['video_data'] = True
+            
+        return response_post
 
     except psycopg2.Error as e:
         db.rollback()
