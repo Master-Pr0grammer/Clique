@@ -24,9 +24,9 @@ app.add_middleware(
 class UserCreate(BaseModel):
     rcs_id: str
     email: str
-    password: str
-    first_name: str
-    last_name: str
+    password_hash: str
+    firstname: str
+    lastname: str
     graduation_year: int
     major: str
     profile_image: Optional[str] = None  # Optional field for profile image URL
@@ -358,7 +358,7 @@ async def create_user(
     cursor = db.cursor(cursor_factory=RealDictCursor)
     try:
         # Hash password
-        password_bytes = user.password.encode('utf-8')
+        password_bytes = user.password_hash.encode('utf-8')
         salt = bcrypt.gensalt()
         password_hash = bcrypt.hashpw(password_bytes, salt)
         
@@ -374,7 +374,7 @@ async def create_user(
             RETURNING *
         """, (
             uid, user.rcs_id, user.email, password_hash.decode('utf-8'),
-            user.first_name, user.last_name, user.graduation_year, user.major,
+            user.firstname, user.lastname, user.graduation_year, user.major,
             user.profile_image
         ))
 
