@@ -180,13 +180,15 @@ async def create_post(
     finally:
         cursor.close()
 
-def decode_file(encoded_data):
-    """Decode base64 encoded data to binary."""
+def decode_file(encoded_data, media_type="image", format="png"):
+    """Decode base64 encoded data to a data URI."""
     try:
-        return base64.b64decode(encoded_data).decode('utf-8')
+        # Return data URI format
+        return f"data:{media_type}/{format};base64,{encoded_data}"
     except Exception as e:
         print(f"Error decoding data: {e}")
         return None
+
 
 @app.get("/10posts")
 async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
@@ -198,11 +200,11 @@ async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
         if not posts:
             return {"message": "No posts found"}
 
-        # Decode image_data for each post
+        # Convert image_data to data URI format for each post
         for post in posts:
             if post["image_data"]:
-                # Decode each base64-encoded image_data entry
-                post["image_data"] = decode_file(post["image_data"])
+                # Decode each base64-encoded image_data entry as a URI
+                post["image_data"] = decode_file(post["image_data"], media_type="image", format="png")
 
         return posts
     
