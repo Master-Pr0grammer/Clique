@@ -21,8 +21,8 @@ export function SignupForm()
     const [user, setUser] = useState<User>({
         //uid: '',
         email: '',
-        firstname: '',
-        lastname: '',
+        first_name: '',
+        last_name: '',
         password: '',
         rcs_id: '',
         //is_admin: false,
@@ -35,14 +35,14 @@ export function SignupForm()
         {
             label: 'First Name',
             placeholder: 'Enter first name',
-            value: user.firstname,
-            key: 'firstname',
+            value: user.first_name,
+            key: 'first_name',
         },
         {
             label: 'Last Name',
             placeholder: 'Enter last name',
-            value: user.lastname,
-            key: 'lastname',
+            value: user.last_name,
+            key: 'last_name',
         },
         {
             label: 'Email address',
@@ -123,9 +123,7 @@ export function SignupForm()
 
             <View style={styles.formAction}>
                 <TouchableOpacity
-                    onPress={() => {
-                        // TODO: handle onPress
-                    }}>
+                    onPress={handleSubmit}>
                     <View style={styles.btn}>
                         <Text style={styles.btnText}>Sign Up</Text>
                     </View>

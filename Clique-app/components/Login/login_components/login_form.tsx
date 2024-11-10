@@ -1,6 +1,6 @@
-import { View, TextInput, Text, TouchableOpacity, Linking, Alert } from "react-native"
+import { View, Text, TouchableOpacity, Alert } from "react-native"
 import { useRouter } from "expo-router";
-import { config, styles } from "../../Styles/login_styles"
+import { styles } from "../../Styles/login_styles"
 import { useState } from 'react';
 import { createTextInput } from "@/helpers/Form/createTextInput";
 
@@ -63,9 +63,7 @@ export function LoginForm()
 
             <View style={styles.formAction}>
                 <TouchableOpacity
-                    onPress={() => {
-                        // TODO: handle onPress
-                    }}>
+                    onPress={handleLogin}>
                     <View style={styles.btn}>
                         <Text style={styles.btnText}>Sign in</Text>
                     </View>
