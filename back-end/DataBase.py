@@ -24,7 +24,7 @@ global_post_id = 0
 global_tag_id = 0
 
 def generate_club_id():
-
+    global global_club_id
     result = str(global_club_id).zfill(7)
     result = f'{global_club_id:07d}'
     result = '{:07d}'.format(global_club_id)
@@ -34,7 +34,7 @@ def generate_club_id():
     return result 
 
 def generate_user_id():
-
+    global global_user_id
     result = str(global_user_id).zfill(7)
     result = f'{global_user_id:07d}'
     result = '{:07d}'.format(global_user_id)
@@ -44,7 +44,7 @@ def generate_user_id():
     return result 
 
 def generate_club_member_id():
-
+    global global_club_member_id
     result = str(global_club_member_id).zfill(7)
     result = f'{global_club_member_id:07d}'
     result = '{:07d}'.format(global_club_member_id)
@@ -54,7 +54,7 @@ def generate_club_member_id():
     return result 
 
 def generate_post_id():
-
+    global global_post_id
     result = str(global_post_id).zfill(7)
     result = f'{global_post_id:07d}'
     result = '{:07d}'.format(global_post_id)
@@ -64,7 +64,7 @@ def generate_post_id():
     return result 
 
 def generate_tag_id():
-
+    global global_club_id
     result = str(global_tag_id).zfill(7)
     result = f'{global_tag_id:07d}'
     result = '{:07d}'.format(global_tag_id)
@@ -479,4 +479,6 @@ def main():
             connection.close()
 
 if __name__ == "__main__":
-    main()
+    #main()
+
+    print(generate_club_id())
