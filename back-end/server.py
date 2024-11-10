@@ -1,317 +1,334 @@
-from fastapi import FastAPI, HTTPException, Depends, status, Security
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
-from datetime import datetime, timedelta
-import jwt
+from datetime import datetime
 import bcrypt
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from DataBase import connect_to_db  # Import your existing database connection
 
-from DataBase import (
-    connect_to_db,
-    insert_user,
-    insert_club,
-    insert_tag,
-    link_club_tag,
-    add_club_member,
-    insert_club_event
-)
+app = FastAPI()
 
-app = FastAPI(title="RPI Clubs API")
-
-# CORS middleware configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Modify this in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-# ///////////////// AUTHENTICATION PORTION OF THE APPLICATION. UNCOMMENT WHEN AUTHENTICATION NEEDED /////////////////////
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-# JWT Configuration
-SECRET_KEY = "your-secret-key"  # Change this in production
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-# Pydantic Models
-class UserBase(BaseModel):
+# Pydantic models for request/response validation
+class UserCreate(BaseModel):
     rcs_id: str
     email: EmailStr
+    password: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     graduation_year: Optional[int] = None
     major: Optional[str] = None
 
-class UserCreate(UserBase):
-    password: str
-
-class ClubBase(BaseModel):
+class ClubCreate(BaseModel):
     name: str
     description: Optional[str] = None
     logo_url: Optional[str] = None
     banner_url: Optional[str] = None
     meeting_location: Optional[str] = None
     meeting_time: Optional[str] = None
-    contact_email: Optional[EmailStr] = None
+    contact_email: Optional[str] = None
     website_url: Optional[str] = None
     instagram_handle: Optional[str] = None
     discord_link: Optional[str] = None
 
-class EventBase(BaseModel):
-    cid: int
+class PostCreate(BaseModel):
+    cid: str
     title: str
     description: Optional[str] = None
     location: Optional[str] = None
-    event_time: datetime
+    event_time: Optional[datetime] = None
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+class ClubMemberCreate(BaseModel):
+    cid: str
+    uid: str
+    role: str
 
-# Authentication functions
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        rcs_id: str = payload.get("sub")
-        if rcs_id is None:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-    except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-    
-    # Here you would typically query the database to get the user
-    # For now, we'll just return the RCS ID
-    return rcs_id
-
-# Endpoints
-@app.post("/token", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+# Database dependency
+async def get_db():
     conn = connect_to_db()
-    if not conn:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    
     try:
-        cursor = conn.cursor()
+        yield conn
+    finally:
+        conn.close()
+
+# Login endpoint
+@app.post("/login")
+async def login(login_data: LoginRequest, db: psycopg2.extensions.connection = Depends(get_db)):
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        # Get user by email
         cursor.execute(
-            "SELECT uid, password_hash FROM users WHERE rcs_id = %s",
-            (form_data.username,)
+            "SELECT * FROM users WHERE email = %s",
+            (login_data.email,)
         )
         user = cursor.fetchone()
         
-        if not user or not bcrypt.checkpw(
-            form_data.password.encode('utf-8'),
-            user[1].encode('utf-8')
-        ):
+        if not user:
             raise HTTPException(
-                status_code=401,
-                detail="Incorrect username or password"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
             )
         
-        access_token = create_access_token({"sub": form_data.username})
-        return {"access_token": access_token, "token_type": "bearer"}
-    finally:
-        conn.close()
-
-@app.post("/users/", status_code=status.HTTP_201_CREATED)
-async def create_user(user: UserCreate):
-    conn = connect_to_db()
-    if not conn:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    
-    try:
-        user_id = insert_user(conn, user.dict())
-        if not user_id:
-            raise HTTPException(status_code=400, detail="Could not create user")
-        return {"uid": user_id, "message": "User created successfully"}
-    finally:
-        conn.close()
-
-@app.post("/clubs/", status_code=status.HTTP_201_CREATED)
-async def create_club(
-    club: ClubBase,
-    current_user: str = Depends(get_current_user)
-):
-    conn = connect_to_db()
-    if not conn:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    
-    try:
-        club_id = insert_club(conn, club.dict())
-        if not club_id:
-            raise HTTPException(status_code=400, detail="Could not create club")
-        return {"cid": club_id, "message": "Club created successfully"}
-    finally:
-        conn.close()
-
-@app.get("/clubs/")
-async def get_clubs(
-    tag: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 10
-):
-    conn = connect_to_db()
-    if not conn:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    
-    try:
-        cursor = conn.cursor()
-        if tag:
-            cursor.execute("""
-                SELECT DISTINCT c.* FROM clubs c
-                JOIN club_tags ct ON c.cid = ct.cid
-                JOIN tags t ON ct.tag_id = t.tag_id
-                WHERE t.name = %s AND c.is_active = TRUE
-                LIMIT %s OFFSET %s
-            """, (tag, limit, skip))
-        else:
-            cursor.execute("""
-                SELECT * FROM clubs
-                WHERE is_active = TRUE
-                LIMIT %s OFFSET %s
-            """, (limit, skip))
+        # Verify password
+        if not bcrypt.checkpw(
+            login_data.password.encode('utf-8'),
+            user['password_hash'].encode('utf-8')
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password"
+            )
+            
+        return {"message": "Login successful", "user": user}
         
+    finally:
+        cursor.close()
+
+# Get all clubs
+@app.get("/clubs")
+async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute("SELECT * FROM clubs WHERE is_active = TRUE")
         clubs = cursor.fetchall()
-        return [dict(zip([column[0] for column in cursor.description], club))
-                for club in clubs]
+        return clubs
     finally:
-        conn.close()
+        cursor.close()
 
-@app.post("/clubs/{club_id}/events/", status_code=status.HTTP_201_CREATED)
-async def create_event(
-    club_id: int,
-    event: EventBase,
-    current_user: str = Depends(get_current_user)
+# Get clubs by tags
+@app.get("/clubs/tags/{tag_id}")
+async def get_clubs_by_tag(
+    tag_id: str,
+    db: psycopg2.extensions.connection = Depends(get_db)
 ):
-    if event.cid != club_id:
-        raise HTTPException(status_code=400, detail="Club ID mismatch")
-    
-    conn = connect_to_db()
-    if not conn:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    
+    cursor = db.cursor(cursor_factory=RealDictCursor)
     try:
-        event_id = insert_club_event(conn, event.dict())
-        if not event_id:
-            raise HTTPException(status_code=400, detail="Could not create event")
-        return {"event_id": event_id, "message": "Event created successfully"}
-    finally:
-        conn.close()
-
-@app.get("/clubs/{club_id}/events/")
-async def get_club_events(
-    club_id: int,
-    skip: int = 0,
-    limit: int = 10
-):
-    conn = connect_to_db()
-    if not conn:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    
-    try:
-        cursor = conn.cursor()
         cursor.execute("""
-            SELECT * FROM club_events
-            WHERE cid = %s
-            ORDER BY event_time
-            LIMIT %s OFFSET %s
-        """, (club_id, limit, skip))
-        
-        events = cursor.fetchall()
-        return [dict(zip([column[0] for column in cursor.description], event))
-                for event in events]
+            SELECT c.* FROM clubs c
+            JOIN club_tags ct ON c.cid = ct.cid
+            WHERE ct.tid = %s AND c.is_active = TRUE
+        """, (tag_id,))
+        clubs = cursor.fetchall()
+        return clubs
     finally:
-        conn.close()
+        cursor.close()
 
-@app.post("/clubs/{club_id}/members/", status_code=status.HTTP_201_CREATED)
-async def add_member(
-    club_id: int,
-    user_id: int,
-    role: str = "member",
-    current_user: str = Depends(get_current_user)
+# Get club posts
+@app.get("/clubs/{club_id}/posts")
+async def get_club_posts(
+    club_id: str,
+    db: psycopg2.extensions.connection = Depends(get_db)
 ):
-    conn = connect_to_db()
-    if not conn:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    
+    cursor = db.cursor(cursor_factory=RealDictCursor)
     try:
-        success = add_club_member(conn, club_id, user_id, role)
-        if not success:
-            raise HTTPException(status_code=400, detail="Could not add member")
-        return {"message": "Member added successfully"}
+        cursor.execute(
+            "SELECT * FROM posts WHERE cid = %s ORDER BY created_at DESC",
+            (club_id,)
+        )
+        posts = cursor.fetchall()
+        return posts
     finally:
-        conn.close()
+        cursor.close()
 
-@app.get("/clubs/{club_id}/members/")
+# Get club members
+@app.get("/clubs/{club_id}/members")
 async def get_club_members(
-    club_id: int,
-    skip: int = 0,
-    limit: int = 10
+    club_id: str,
+    db: psycopg2.extensions.connection = Depends(get_db)
 ):
-    conn = connect_to_db()
-    if not conn:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    
+    cursor = db.cursor(cursor_factory=RealDictCursor)
     try:
-        cursor = conn.cursor()
         cursor.execute("""
-            SELECT u.uid, u.rcs_id, u.first_name, u.last_name,
-                   cm.role, cm.joined_at
+            SELECT cm.*, u.first_name, u.last_name, u.rcs_id
             FROM club_members cm
             JOIN users u ON cm.uid = u.uid
             WHERE cm.cid = %s
-            LIMIT %s OFFSET %s
-        """, (club_id, limit, skip))
-        
+        """, (club_id,))
         members = cursor.fetchall()
-        return [dict(zip([column[0] for column in cursor.description], member))
-                for member in members]
+        return members
     finally:
-        conn.close()
+        cursor.close()
 
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-# ///////////////////////////////////////////  GET REQUESTS  ////////////////////////////////////////////////////////////
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+# Get club homepage with 10 most recent posts
+@app.get("/clubs/{club_id}/homepage")
+async def get_club_homepage(
+    club_id: str,
+    db: psycopg2.extensions.connection = Depends(get_db)
+):
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        # Get club info
+        cursor.execute("SELECT * FROM clubs WHERE cid = %s", (club_id,))
+        club = cursor.fetchone()
+        
+        if not club:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Club not found"
+            )
+        
+        # Get 10 most recent posts
+        cursor.execute("""
+            SELECT * FROM posts 
+            WHERE cid = %s 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        """, (club_id,))
+        recent_posts = cursor.fetchall()
+        
+        return {
+            "club": club,
+            "recent_posts": recent_posts
+        }
+    finally:
+        cursor.close()
 
+# Create new user
+@app.post("/users")
+async def create_user(
+    user: UserCreate,
+    db: psycopg2.extensions.connection = Depends(get_db)
+):
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        # Hash password
+        password_bytes = user.password.encode('utf-8')
+        salt = bcrypt.gensalt()
+        password_hash = bcrypt.hashpw(password_bytes, salt)
+        
+        # Generate user ID using your existing function
+        from DataBase import generate_user_id
+        uid = generate_user_id()
+        
+        cursor.execute("""
+            INSERT INTO users (uid, rcs_id, email, password_hash, 
+                             first_name, last_name, graduation_year, major)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING *
+        """, (
+            uid, user.rcs_id, user.email, password_hash.decode('utf-8'),
+            user.first_name, user.last_name, user.graduation_year, user.major
+        ))
+        
+        db.commit()
+        new_user = cursor.fetchone()
+        return new_user
+    except psycopg2.Error as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    finally:
+        cursor.close()
 
-@app.get("/clubs/{club_id}/")
-''' GET CLUB PAGE
+# Create new club
+@app.post("/clubs")
+async def create_club(
+    club: ClubCreate,
+    db: psycopg2.extensions.connection = Depends(get_db)
+):
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        from DataBase import generate_club_id
+        cid = generate_club_id()
+        
+        cursor.execute("""
+            INSERT INTO clubs (cid, name, description, logo_url, banner_url,
+                             meeting_location, meeting_time, contact_email,
+                             website_url, instagram_handle, discord_link)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING *
+        """, (
+            cid, club.name, club.description, club.logo_url, club.banner_url,
+            club.meeting_location, club.meeting_time, club.contact_email,
+            club.website_url, club.instagram_handle, club.discord_link
+        ))
+        
+        db.commit()
+        new_club = cursor.fetchone()
+        return new_club
+    except psycopg2.Error as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    finally:
+        cursor.close()
 
-returns a list of json including 
+@app.post("/clubs")
+async def create_club(
+    club: ClubCreate,
+    db: psycopg2.extensions.connection = Depends(get_db)
+):
+    print("Attempting to create club:", club.dict())  # Add debug logging
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        from DataBase import generate_club_id
+        cid = generate_club_id()
+        print("Generated CID:", cid)  # Add debug logging
+        
+        query = """
+            INSERT INTO clubs (cid, name, description, logo_url, banner_url,
+                             meeting_location, meeting_time, contact_email,
+                             website_url, instagram_handle, discord_link)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING *
+        """
+        values = (
+            cid, club.name, club.description, club.logo_url, club.banner_url,
+            club.meeting_location, club.meeting_time, club.contact_email,
+            club.website_url, club.instagram_handle, club.discord_link
+        )
+        print("Executing query with values:", values)  # Add debug logging
+        
+        cursor.execute(query, values)
+        db.commit()
+        new_club = cursor.fetchone()
+        return new_club
+    except Exception as e:  # Catch all exceptions for debugging
+        print(f"Error creating club: {str(e)}")  # Add debug logging
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    finally:
+        cursor.close()
 
-
-'''
-async def 
-
-
-
-
-
-
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-# ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+# Add club member
+@app.post("/clubs/members")
+async def add_club_member(
+    member: ClubMemberCreate,
+    db: psycopg2.extensions.connection = Depends(get_db)
+):
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        from DataBase import generate_club_member_id
+        cmid = generate_club_member_id()
+        
+        cursor.execute("""
+            INSERT INTO club_members (cmid, cid, uid, role)
+            VALUES (%s, %s, %s, %s)
+            RETURNING *
+        """, (cmid, member.cid, member.uid, member.role))
+        
+        db.commit()
+        new_member = cursor.fetchone()
+        return new_member
+    except psycopg2.Error as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    finally:
+        cursor.close()
 
 if __name__ == "__main__":
     import uvicorn
