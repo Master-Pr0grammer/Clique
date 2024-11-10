@@ -108,15 +108,15 @@ async def login(login_data: LoginRequest, db: psycopg2.extensions.connection = D
         cursor.close()
 
 
-def encode_file(file_path):
-    """Convert file to binary data"""
-    try:
-        with open(file_path, 'rb') as file:
-            binary_data = file.read()
-        return binary_data
-    except Exception as e:
-        print(f"Error encoding file: {e}")
-        return None
+# def encode_file(file_path):
+#     """Convert file to binary data"""
+#     try:
+#         with open(file_path, 'rb') as file:
+#             binary_data = file.read()
+#         return binary_data
+#     except Exception as e:
+#         print(f"Error encoding file: {e}")
+#         return None
     
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
 async def create_post(
@@ -136,8 +136,8 @@ async def create_post(
             )
         
         # Encode image and video data if file paths are provided
-        image_data_encoded = encode_file(post.image_data) if post.image_data else None
-        video_data_encoded = encode_file(post.video_data) if post.video_data else None
+        image_data_encoded = post.image_data if post.image_data else None
+        video_data_encoded = post.video_data if post.video_data else None
         
         # Generate new post ID
         from DataBase import generate_post_id
