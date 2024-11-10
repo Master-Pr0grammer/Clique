@@ -47,6 +47,7 @@ class ClubCreate(BaseModel):
     password: str
 
 class PostCreate(BaseModel):
+    club_name: str
     cid: str
     title: str
     description: Optional[str] = None
@@ -116,11 +117,24 @@ async def create_post(
 ):
    try:
        cursor = db.cursor(cursor_factory=RealDictCursor)
+
+       # Look up the club ID based on club_name
+       cursor.execute("SELECT cid FROM clubs WHERE title = %s", (post.club_name,))
+       club = cursor.fetchone()
        
+       if not club:
+           raise HTTPException(
+               status_code=status.HTTP_404_NOT_FOUND,
+               detail="Club not found"
+           )
+
+       # Use the found cid for the post
+       cid = club['cid']
+
        # Generate new post ID
        from DataBase import generate_post_id
        pid = generate_post_id()
-       
+
        cursor.execute("""
            INSERT INTO posts (
                pid,
@@ -137,13 +151,13 @@ async def create_post(
            ) RETURNING *
        """, (
            pid,
-           post.cid,
+           cid,
            post.title,
            post.description,
            post.image_data,
            post.video_data
        ))
-       
+
        db.commit()
        new_post = cursor.fetchone()
        return new_post
