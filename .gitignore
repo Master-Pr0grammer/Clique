@@ -1,4 +1,5 @@
 node_modules/
+Clique-app/node_modules/
 .expo/
 dist/
 app-example/
