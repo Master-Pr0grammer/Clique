@@ -1,31 +1,54 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Image, StyleSheet, Platform } from 'react-native';
+import { View, Text, TextInput, Button, Image, StyleSheet, Platform, Alert } from 'react-native';
 import { launchImageLibrary, ImageLibraryOptions } from 'react-native-image-picker';
 
-// Define types for media asset
 interface MediaAsset {
   uri: string;
   type?: string;
   name?: string;
 }
 
+interface PostData {
+  club_name: string;  // Changed from cid to club_name
+  title: string;
+  description: string;
+  image_data?: string | null;
+  video_data?: string | null;
+}
+
 export default function CreatePost() {
+  const [clubName, setClubName] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Validate required fields
+  const validateForm = () => {
+    if (!clubName.trim()) {
+      Alert.alert('Error', 'Please enter a club name');
+      return false;
+    }
+    if (!title.trim()) {
+      Alert.alert('Error', 'Please enter a title');
+      return false;
+    }
+    return true;
+  };
 
   const handleMediaSelect = async () => {
     if (Platform.OS === 'web') {
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
       fileInput.accept = 'image/*,video/*';
-      fileInput.onchange = (event: Event) => {
+      fileInput.onchange = async (event: Event) => {
         const target = event.target as HTMLInputElement;
         const file = target.files?.[0];
         if (file) {
           const fileURL = URL.createObjectURL(file);
           setMediaUri(fileURL);
+          setMediaType(file.type.startsWith('image/') ? 'image' : 'video');
         }
       };
       fileInput.click();
@@ -33,82 +56,112 @@ export default function CreatePost() {
       const options: ImageLibraryOptions = {
         mediaType: 'mixed',
         quality: 1,
+        includeBase64: true,
       };
 
       try {
         const response = await launchImageLibrary(options);
-        if (response.didCancel) {
-          console.log('User cancelled media picker');
-        } else if (response.errorMessage) {
-          console.log('ImagePicker Error: ', response.errorMessage);
-        } else if (response.assets && response.assets.length > 0) {
+        if (response.assets && response.assets.length > 0) {
           const asset = response.assets[0];
           setMediaUri(asset.uri ?? null);
+          setMediaType(asset.type?.startsWith('image/') ? 'image' : 'video');
         }
       } catch (error) {
         console.error('Error selecting media:', error);
+        Alert.alert('Error', 'Failed to select media');
       }
     }
   };
 
+  const getBase64Data = async (uri: string): Promise<string> => {
+    if (Platform.OS === 'web') {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          resolve(base64data.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } else {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          resolve(base64data.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+  };
+
   const handleCreatePost = async () => {
-    if (!title.trim()) {
-      alert('Please enter a title');
+    if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
-    const formData = new FormData();
-    formData.append('title', title.trim());
-    formData.append('description', description.trim());
-
-    if (mediaUri) {
-      try {
-        if (Platform.OS === 'web') {
-          const response = await fetch(mediaUri);
-          const blob = await response.blob();
-          formData.append('media', blob, 'media');
-        } else {
-          const filename = mediaUri.split('/').pop() || 'media';
-          const fileType = filename.split('.').pop()?.toLowerCase() || 'jpeg';
-          const mediaAsset: MediaAsset = {
-            uri: mediaUri,
-            name: filename,
-            type: fileType.includes('mp4') ? 'video/mp4' : `image/${fileType}`,
-          };
-          formData.append('media', mediaAsset as any);
-        }
-      } catch (error) {
-        console.error('Error processing media:', error);
-        alert('Error processing media. Please try again.');
-        setIsLoading(false);
-        return;
-      }
-    }
 
     try {
-      const response = await fetch('https://your-backend-url.com/api/posts', {
+      const postData: PostData = {
+        club_name: clubName.trim(),  // Using club_name instead of cid
+        title: title.trim(),
+        description: description.trim(),
+        image_data: null,
+        video_data: null,
+      };
+
+      if (mediaUri) {
+        const base64Data = await getBase64Data(mediaUri);
+        if (mediaType === 'image') {
+          postData.image_data = base64Data;
+        } else if (mediaType === 'video') {
+          postData.video_data = base64Data;
+        }
+      }
+
+      console.log('Sending post data:', { 
+        ...postData, 
+        image_data: postData.image_data ? '[BASE64]' : null 
+      });
+
+      const response = await fetch('http://128.213.71.72:8080/posts', {
         method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify(postData),
       });
 
       if (response.ok) {
-        console.log('Post created successfully');
+        Alert.alert('Success', 'Post created successfully!');
         // Reset form
+        setClubName('');
         setTitle('');
         setDescription('');
         setMediaUri(null);
-        alert('Post created successfully!');
+        setMediaType(null);
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Error creating post');
+        if (errorData.detail) {
+          const errorMessage = Array.isArray(errorData.detail) 
+            ? errorData.detail.map((err: any) => err.msg).join('\n')
+            : errorData.detail;
+          throw new Error(errorMessage);
+        } else {
+          throw new Error('Failed to create post');
+        }
       }
     } catch (error) {
-      console.error('Network error:', error);
-      alert('Error creating post. Please try again.');
+      console.error('Error creating post:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to create post. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -117,13 +170,24 @@ export default function CreatePost() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Create a New Post</Text>
+      
+      {/* Club Name Input */}
       <TextInput
         style={styles.input}
-        placeholder="Title"
+        placeholder="Club Name"
+        value={clubName}
+        onChangeText={setClubName}
+        maxLength={100}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Post Title"
         value={title}
         onChangeText={setTitle}
         maxLength={100}
       />
+
       <TextInput
         style={[styles.input, styles.textArea]}
         placeholder="Description"
@@ -133,22 +197,25 @@ export default function CreatePost() {
         numberOfLines={4}
         maxLength={1000}
       />
+
       <Button 
         title="Select Image/Video" 
         onPress={handleMediaSelect}
         disabled={isLoading}
       />
-      {mediaUri && (
+
+      {mediaUri && mediaType === 'image' && (
         <Image 
           source={{ uri: mediaUri }} 
           style={styles.preview}
           resizeMode="cover"
         />
       )}
+
       <Button 
-        title={isLoading ? "Creating Post..." : "Post"} 
+        title={isLoading ? "Creating Post..." : "Create Post"} 
         onPress={handleCreatePost}
-        disabled={isLoading || !title.trim()}
+        disabled={isLoading || !title.trim() || !clubName.trim()}
       />
     </View>
   );
