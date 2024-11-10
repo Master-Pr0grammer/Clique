@@ -7,8 +7,7 @@ import bcrypt
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from DataBase import connect_to_db  # Import your existing database connection
-
-
+import base64
 
 app = FastAPI()
 
@@ -181,6 +180,14 @@ async def create_post(
     finally:
         cursor.close()
 
+def decode_file(encoded_data):
+    """Decode base64 encoded data to binary."""
+    try:
+        return base64.b64decode(encoded_data).decode('utf-8')
+    except Exception as e:
+        print(f"Error decoding data: {e}")
+        return None
+
 @app.get("/10posts")
 async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
     cursor = db.cursor(cursor_factory=RealDictCursor)
@@ -191,11 +198,11 @@ async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
         if not posts:
             return {"message": "No posts found"}
 
-        # Convert image_data to a list format for each post
+        # Decode image_data for each post
         for post in posts:
             if post["image_data"]:
-                # Assuming image_data is a comma-separated string
-                post["image_data"] = post["image_data"].split(",")
+                # Decode each base64-encoded image_data entry
+                post["image_data"] = decode_file(post["image_data"])
 
         return posts
     
@@ -204,7 +211,6 @@ async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
-
     finally:
         cursor.close()
 
