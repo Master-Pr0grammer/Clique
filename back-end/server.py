@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Query
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime
@@ -37,6 +37,9 @@ class PostCreate(BaseModel):
     description: Optional[str] = None
     location: Optional[str] = None
     event_time: Optional[datetime] = None
+
+class ClubTagAddRequest(BaseModel):
+    tag_ids: List[str]
 
 class ClubMemberCreate(BaseModel):
     cid: str
@@ -100,18 +103,25 @@ async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
         cursor.close()
 
 # Get clubs by tags
-@app.get("/clubs/tags/{tag_id}")
-async def get_clubs_by_tag(
-    tag_id: str,
+
+# GET http://localhost:8000/clubs/tags?tag_ids=0000001&tag_ids=0000002 format for get request
+@app.get("/clubs/tags")
+async def get_clubs_by_tags(
+    tag_ids: List[str] = Query(...),  # Expecting a list of tag IDs as query parameters
     db: psycopg2.extensions.connection = Depends(get_db)
 ):
     cursor = db.cursor(cursor_factory=RealDictCursor)
     try:
-        cursor.execute("""
+        # Create a query to find clubs that have all specified tags
+        query = """
             SELECT c.* FROM clubs c
             JOIN club_tags ct ON c.cid = ct.cid
-            WHERE ct.tid = %s AND c.is_active = TRUE
-        """, (tag_id,))
+            WHERE c.is_active = TRUE
+            AND ct.tid = ANY(%s)
+            GROUP BY c.cid
+            HAVING COUNT(DISTINCT ct.tid) = %s
+        """
+        cursor.execute(query, (tag_ids, len(tag_ids)))
         clubs = cursor.fetchall()
         return clubs
     finally:
@@ -301,6 +311,56 @@ async def create_club(
     finally:
         cursor.close()
 
+@app.post("/clubs/{club_id}/tags")
+async def add_tags_to_club(
+    club_id: str,  # use club_id from the path
+    tag_request: ClubTagAddRequest,
+    db: psycopg2.extensions.connection = Depends(get_db)
+):
+    cursor = db.cursor()
+    try:
+        # Step 1: Verify each tag ID exists in the tags table
+        cursor.execute(
+            "SELECT tid FROM tags WHERE tid = ANY(%s)",
+            (tag_request.tag_ids,)
+        )
+        valid_tags = {row[0] for row in cursor.fetchall()}
+
+        # Filter out any tags that don't exist in the tags table
+        invalid_tags = set(tag_request.tag_ids) - valid_tags
+        if invalid_tags:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid tag IDs: {', '.join(invalid_tags)}"
+            )
+
+        # Step 2: Insert valid tags into club_tags, avoiding duplicates
+        for tag_id in valid_tags:
+            cursor.execute("""
+                INSERT INTO club_tags (cid, tid)
+                VALUES (%s, %s)
+                ON CONFLICT (cid, tid) DO NOTHING
+            """, (club_id, tag_id))
+
+        db.commit()
+        return {"message": "Tags added successfully"}
+
+    except psycopg2.Error as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    finally:
+        cursor.close()
+
+    # Format:
+    # "tag_ids": [
+    #     "0000001",
+    #     "0000002",
+    #     "0000003"
+    # ]
+    
 # Add club member
 @app.post("/clubs/members")
 async def add_club_member(

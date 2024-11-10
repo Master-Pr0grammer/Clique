@@ -215,7 +215,25 @@ def create_tables(connection):
                 PRIMARY KEY (pid)
             );
         """)
-        
+
+        # Insert predefined tags if they don't exist
+        predefined_tags = [
+            {"tid": "0000001", "name": "Technology"},
+            {"tid": "0000002", "name": "Art"},
+            {"tid": "0000003", "name": "Sports"},
+            {"tid": "0000004", "name": "Science"},
+            {"tid": "0000005", "name": "Literature"},
+            {"tid": "0000006", "name": "Music"},
+            {"tid": "0000007", "name": "Social"},
+        ]
+
+        for tag in predefined_tags:
+            cursor.execute("""
+                INSERT INTO tags (tid, name)
+                VALUES (%s, %s)
+                ON CONFLICT (name) DO NOTHING
+            """, (tag["tid"], tag["name"]))
+
         connection.commit()
         print("Tables created successfully")
         
