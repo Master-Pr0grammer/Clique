@@ -1,5 +1,7 @@
 node_modules/
 app-example/
+package-lock.json
+package.json
 .expo/
 dist/
 app-example/
