@@ -112,9 +112,9 @@ def generate_tag_id():
 def connect_to_db():
     try:
         connection = psycopg2.connect(
-            database="club_database",
+            database="postgres",
             user="postgres",
-            password="30020201$/$",
+            password="22Pebbles",
             host="localhost",
             port="5432"
         )
@@ -208,8 +208,8 @@ def create_tables(connection):
                 cid VARCHAR(7) REFERENCES clubs(cid),
                 title VARCHAR(255) NOT NULL,
                 description TEXT,
-                image_data BYTEA,
-                video_data BYTEA,
+                image_data VARCHAR(255),
+                video_data VARCHAR(255),
                 upvote INTEGER DEFAULT 0,
                 downvote INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

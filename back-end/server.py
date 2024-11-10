@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, status, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime
@@ -7,7 +8,18 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from DataBase import connect_to_db  # Import your existing database connection
 
+
+
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
 
 # Define the Pydantic model for user creation
 class UserCreate(BaseModel):
@@ -38,8 +50,10 @@ class PostCreate(BaseModel):
     cid: str
     title: str
     description: Optional[str] = None
-    location: Optional[str] = None
-    event_time: Optional[datetime] = None
+    image_data: Optional[str] = None
+    video_data: Optional[str] = None
+    
+
 
 class ClubTagAddRequest(BaseModel):
     tag_ids: List[str]
@@ -94,6 +108,74 @@ async def login(login_data: LoginRequest, db: psycopg2.extensions.connection = D
     finally:
         cursor.close()
 
+
+@app.post("/posts", status_code=status.HTTP_201_CREATED)
+async def create_post(
+   post: PostCreate,
+   db: psycopg2.extensions.connection = Depends(get_db)
+):
+   try:
+       cursor = db.cursor(cursor_factory=RealDictCursor)
+       
+       # Generate new post ID
+       from DataBase import generate_post_id
+       pid = generate_post_id()
+       
+       cursor.execute("""
+           INSERT INTO posts (
+               pid,
+               cid,
+               title,
+               description,
+               image,
+               video,
+               upvote,
+               downvote,
+               created_at
+           ) VALUES (
+               %s, %s, %s, %s, %s, %s, 0, 0, CURRENT_TIMESTAMP
+           ) RETURNING *
+       """, (
+           pid,
+           post.cid,
+           post.title,
+           post.description,
+           post.image_data,
+           post.video_data
+       ))
+       
+       db.commit()
+       new_post = cursor.fetchone()
+       return new_post
+
+   except psycopg2.Error as e:
+       db.rollback()
+       raise HTTPException(
+           status_code=status.HTTP_400_BAD_REQUEST,
+           detail=f"Database error: {str(e)}"
+       )
+   finally:
+       cursor.close()
+
+
+@app.get("/10posts")
+async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
+    cursor = db.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute("SELECT * FROM posts ORDER BY created_at DESC LIMIT 10")
+        posts = cursor.fetchall()
+        
+        if not posts:
+            return {"message": "No posts found"}
+
+        return posts
+    
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=str(e))
+
+    finally:
+        cursor.close()
 # Get all clubs
 @app.get("/clubs")
 async def get_clubs(db: psycopg2.extensions.connection = Depends(get_db)):
