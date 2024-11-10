@@ -1,7 +1,5 @@
-import { SafeAreaView, StyleSheet, Text, TextInput, Image, View, ScrollView } from "react-native"; 
-import { styles } from "@/components/Styles/login_styles";
+import {StyleSheet, Text, Image, View, ScrollView } from "react-native"; 
 import GallerySwiper from "react-native-gallery-swiper";
-import { useState } from "react";
 
 const image1 = 'https://picsum.photos/id/1019/1000/600/';
 const image2 = 'https://picsum.photos/id/1015/1000/600/';
