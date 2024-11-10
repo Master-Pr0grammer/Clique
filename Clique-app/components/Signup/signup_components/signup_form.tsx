@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from "react-native"
+import { View, Text, TouchableOpacity, Alert } from "react-native"
 import { useRouter } from "expo-router";
 import { styles } from "../../Styles/login_styles"
 import { useState } from 'react';
@@ -19,14 +19,14 @@ export function SignupForm()
 {
     const router = useRouter();
     const [user, setUser] = useState<User>({
-        uid: '',
+        //uid: '',
         email: '',
         firstname: '',
         lastname: '',
         password: '',
         rcs_id: '',
-        is_admin: false,
-        profile_image: '',
+        //is_admin: false,
+        //profile_image: '',
         graduation_year: 0,
         major: '',
     });
@@ -78,6 +78,32 @@ export function SignupForm()
             key: 'major',
         },
     ];
+
+    const handleSubmit = async () => {
+        try {
+            const response = await fetch('http://128.213.71.72:8080/users', {
+                method: 'POST',
+                mode: 'cors', // Explicitly set the mode to CORS
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json', // Optional but good to have
+                },
+                body: JSON.stringify(user),
+            });
+    
+            if (response.ok) {
+                Alert.alert('Success', 'Club created successfully!');
+                router.push('/login'); // Redirect after successful submission
+            } else {
+                const errorMessage = await response.text(); // Get more details about the error
+                console.error('Server Response:', errorMessage);
+                Alert.alert('Error', 'Failed to create club. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            Alert.alert('Error', 'An unexpected error occurred.');
+        }
+    };
 
     return (
         <View style={styles.form}>
