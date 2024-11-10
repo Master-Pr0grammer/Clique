@@ -53,6 +53,7 @@ export const styles = StyleSheet.create({
       fontWeight: '600',
       color: '#8B0000',
       textAlign: 'center',
+      paddingBottom: 40,
     },
     formFooter: {
       paddingVertical: 24,

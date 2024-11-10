@@ -1,7 +1,7 @@
 import { styles } from '../Styles/login_styles';
-import { LoginHeader } from './login_components/header';
+import { LoginHeader } from './login_components/login_header';
 import { LoginForm } from './login_components/login_form';
-import { SignUp } from './login_components/signup';
+import { NoAccountBtn } from './login_components/NoAcctBtn';
 import {
   SafeAreaView,
 } from 'react-native';
@@ -21,7 +21,7 @@ export function Login() {
       </KeyboardAwareScrollView>
 
       {/* Sign up button */}
-      <SignUp />
+      <NoAccountBtn />
 
     </SafeAreaView>
   );
