@@ -1,7 +1,5 @@
-import { styles } from "@/components/Styles/login_styles";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native"; 
+import React, { useState } from "react";
+import { StyleSheet, Text, View, ScrollView } from "react-native"; 
 import GallerySwiper from "react-native-gallery-swiper";
 
 type ResizeModeType = 'cover' | 'contain';
@@ -47,54 +45,52 @@ export default function Index() {
         setResize((prevResize) => (prevResize === 'cover' ? 'contain' : 'cover'));
     };
 
+    const posts = get_posts();
     return (
-        <View style={{ flex: 1 }}>
-            {loading ? (
-                <ActivityIndicator size="large" color="#8B0000" />
-            ) : posts && posts.length > 0 ? (
-                <ScrollView contentContainerStyle={{ justifyContent: 'space-around', gap: 20 }}>
-                    {posts.map((post, index) => (
-                        <View key={index}>
-                            {display_post(post, handleSingleTap, 'cover')}
-                        </View>
-                    ))}
-                </ScrollView>
-            ) : (
-                <Text style={{ textAlign: 'center', marginTop: 20 }}>No posts available.</Text>
-            )}
-
-            <TouchableOpacity
-                onPress={() => {
-                    router.navigate('/createpost');
-                }}>
-                <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingVertical: 10,
-                        paddingHorizontal: 20,
-                        borderWidth: 1,
-                        backgroundColor: '#8B0000',
-                        borderColor: '#8B0000',
-                    }}>
-                    <Text style={{ color: 'white', fontSize: 16 }}>Create Post</Text>
+        <ScrollView contentContainerStyle={{ justifyContent: 'space-around', gap: 20 }}>
+            {posts.map((post, index) => (
+                <View key={index}>
+                    {display_post(post, handleSingleTap, resize)}
                 </View>
-            </TouchableOpacity>
-        </View>
+            ))}
+        </ScrollView>
     );
 }
 
+// Function to simulate a database call
+function get_posts() {
+    return [
+        {
+            images: ['https://picsum.photos/id/1019/1000/600/', 'https://picsum.photos/id/1015/1000/600/'],
+            title: 'New York Pic',
+            text: 'Picture from NY trip',
+        },
+        {
+            images: ['https://picsum.photos/id/1015/1000/600/'],
+            title: 'Mount Everest',
+            text: 'Tall mountain bro',
+        },
+        {
+            images: ['https://picsum.photos/id/1019/1000/600/'],
+            title: 'RPI, am I right',
+            text: 'Picture of RPI building',
+        },
+    ];
+}
+
 function display_post(
-    post_info: {
-        images: string[];
-        title: string;
-        text: string;
-    },
+    post_info: { title: string; 
+        description: string; 
+        image_data: string[]; 
+        video_data: string
+        upvote: number,
+        downvote: number
+        created_at:string},
     handleSingleTap: () => void,
     resize: ResizeModeType
 ) {
     // Map images dynamically for better flexibility
-    const images = post_info.images.map(image => ({ uri: image }));
+    const images = post_info.image_data.map(image => ({ uri: image }));
 
     return (
         <View style={post_style.container}>
@@ -103,11 +99,14 @@ function display_post(
                 onSingleTapConfirmed={handleSingleTap}
                 resizeMode={resize}
                 style={post_style.gallery}
-                images={images}
+                images={[{ uri: "https://picsum.photos/id/1018/1000/600/" },
+                    { uri: "https://picsum.photos/id/1015/1000/600/" },
+                    { uri: "https://luehangs.site/pic-chat-app-images/beautiful-blond-blonde-hair-478544.jpg" },]}
                 enableTranslate={false}
                 // Optional: React key that updates when resize changes to force a re-render without resetting
                 key={resize} 
             />
+            <Text style={post_style.subtitle}>{post_info.description}</Text>
         </View>
     );
 }
@@ -115,11 +114,12 @@ function display_post(
 
 export const post_style = StyleSheet.create({
     container: {
-        marginHorizontal: '2%',
+        marginVertical:'2%',
+        //marginHorizontal: '2%',
         flexGrow: 1,
         flexShrink: 1,
         flex: 1,
-        backgroundColor: '#333',
+        backgroundColor: '#8B0000',
         borderRadius: 20,
     },
     title: {
@@ -133,5 +133,13 @@ export const post_style = StyleSheet.create({
     gallery: {
         flex: 1,
         flexShrink: 1,
-    }
+    },
+    subtitle: {
+        paddingTop: 5,
+        paddingBottom: 10,
+        paddingHorizontal: 20,
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#d4d4d4',
+      },
 });
