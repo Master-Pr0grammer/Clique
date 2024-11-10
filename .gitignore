@@ -1,6 +1,7 @@
-Clique/Clique-app/node_modules/
+node_modules/
 .expo/
 dist/
+app-example/
 npm-debug.*
 *.jks
 *.p8
