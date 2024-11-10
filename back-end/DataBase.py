@@ -79,6 +79,8 @@ def generate_tag_id():
 
 
 
+# //////////////
+
 def connect_to_db():
     try:
         connection = psycopg2.connect(
@@ -95,11 +97,10 @@ def connect_to_db():
 
 
 def create_tables(connection):
-    """Create necessary tables if they don't exist"""
     try:
         cursor = connection.cursor()
         
-        # Create users table
+        # Create users table (unchanged)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 uid VARCHAR(7) PRIMARY KEY,
@@ -114,7 +115,7 @@ def create_tables(connection):
             );
         """)
         
-        # Create clubs table
+        # Create clubs table (unchanged)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS clubs (
                 cid VARCHAR(7) PRIMARY KEY,
@@ -133,7 +134,7 @@ def create_tables(connection):
             );
         """)
         
-        # Create tags table
+        # Create tags table (unchanged)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS tags (
                 tid VARCHAR(7) PRIMARY KEY,
@@ -141,7 +142,7 @@ def create_tables(connection):
             );
         """)
         
-        # Create club_tags table
+        # Create club_tags table (unchanged)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS club_tags (
                 cid VARCHAR(7) REFERENCES clubs(cid),
@@ -150,19 +151,19 @@ def create_tables(connection):
             );
         """)
         
-        # Create club_members table
+        # Modified club_members table - make cmid the primary key
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS club_members (
-                cmid VARCHAR(7),
+                cmid VARCHAR(7) PRIMARY KEY,
                 cid VARCHAR(7) REFERENCES clubs(cid),
                 uid VARCHAR(7) REFERENCES users(uid),
-                role VARCHAR(50) NOT NULL,  -- 'admin', 'officer', 'member'
+                role VARCHAR(50) NOT NULL,
                 joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (cmid, cid, uid)
+                UNIQUE (cid, uid)
             );
         """)
         
-        # Create posts table
+        # Create posts table (unchanged)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS posts (
                 pid VARCHAR(7) PRIMARY KEY,
@@ -179,18 +180,16 @@ def create_tables(connection):
             );
         """)
 
-        # Create user_notifications table
+        # Modified user_notifications table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS user_notifications (
                 pid VARCHAR(7) REFERENCES posts(pid),
                 cmid VARCHAR(7) REFERENCES club_members(cmid),
                 PRIMARY KEY (pid, cmid)
             );
+        """)
 
-        """
-        )
-
-        # Create comments table
+        # Modified comments table - fixed syntax and made cmid a foreign key
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS comments (
                 pid VARCHAR(7) REFERENCES posts(pid),
@@ -198,11 +197,9 @@ def create_tables(connection):
                 upvotes INTEGER DEFAULT 0,
                 downvotes INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY pid
+                PRIMARY KEY (pid)
             );
-
-        """
-        )
+        """)
         
         connection.commit()
         print("Tables created successfully")
@@ -422,55 +419,55 @@ def main():
         # Create all necessary tables
         create_tables(connection)
         
-        # Example RPI club
-        club_data = {
-            'name': 'RCOS',
-            'description': 'Rensselaer Center for Open Source - A community of Open Source developers.',
-            'meeting_location': 'DCC 308',
-            'meeting_time': 'Tuesday/Friday 4:00 PM - 5:15 PM',
-            'contact_email': 'coordinators@rcos.io',
-            'website_url': 'https://rcos.io',
-            'discord_link': 'https://discord.gg/rcos'
-        }
+        # # Example RPI club
+        # club_data = {
+        #     'name': 'RCOS',
+        #     'description': 'Rensselaer Center for Open Source - A community of Open Source developers.',
+        #     'meeting_location': 'DCC 308',
+        #     'meeting_time': 'Tuesday/Friday 4:00 PM - 5:15 PM',
+        #     'contact_email': 'coordinators@rcos.io',
+        #     'website_url': 'https://rcos.io',
+        #     'discord_link': 'https://discord.gg/rcos'
+        # }
         
-        # Insert club
-        club_id = insert_club(connection, club_data)
+        # # Insert club
+        # club_id = insert_club(connection, club_data)
         
-        # Add relevant tags
-        tags = ['Open Source', 'Software Development', 'Programming', 'Technology']
-        for tag_name in tags:
-            tag_id = insert_tag(connection, tag_name)
-            if tag_id:
-                link_club_tag(connection, club_id, tag_id)
+        # # Add relevant tags
+        # tags = ['Open Source', 'Software Development', 'Programming', 'Technology']
+        # for tag_name in tags:
+        #     tag_id = insert_tag(connection, tag_name)
+        #     if tag_id:
+        #         link_club_tag(connection, club_id, tag_id)
         
-        # Example user (student)
-        user_data = {
-            'rcs_id': 'smithj',
-            'email': 'smithj@rpi.edu',
-            'password': 'securepassword123',  # Will be hashed
-            'first_name': 'John',
-            'last_name': 'Smith',
-            'graduation_year': 2025,
-            'major': 'Computer Science'
-        }
+        # # Example user (student)
+        # user_data = {
+        #     'rcs_id': 'smithj',
+        #     'email': 'smithj@rpi.edu',
+        #     'password': 'securepassword123',  # Will be hashed
+        #     'first_name': 'John',
+        #     'last_name': 'Smith',
+        #     'graduation_year': 2025,
+        #     'major': 'Computer Science'
+        # }
         
-        # Insert user
-        user_id = insert_user(connection, user_data)
+        # # Insert user
+        # user_id = insert_user(connection, user_data)
         
-        # Add user as club member
-        if user_id and club_id:
-            add_club_member(connection, club_id, user_id, 'member')
+        # # Add user as club member
+        # if user_id and club_id:
+        #     add_club_member(connection, club_id, user_id, 'member')
         
-        # Add example event
-        event_data = {
-            'cid': club_id,
-            'title': 'RCOS First Meeting',
-            'description': 'Introduction to RCOS and project presentations',
-            'location': 'DCC 308',
-            'event_time': datetime(2024, 1, 23, 16, 0)  # 4:00 PM on Jan 23, 2024
-        }
+        # # Add example event
+        # event_data = {
+        #     'cid': club_id,
+        #     'title': 'RCOS First Meeting',
+        #     'description': 'Introduction to RCOS and project presentations',
+        #     'location': 'DCC 308',
+        #     'event_time': datetime(2024, 1, 23, 16, 0)  # 4:00 PM on Jan 23, 2024
+        # }
         
-        event_id = insert_club_event(connection, event_data)
+        # event_id = insert_club_event(connection, event_data)
 
     except Error as e:
         print(f"Error: {e}")
@@ -479,6 +476,4 @@ def main():
             connection.close()
 
 if __name__ == "__main__":
-    #main()
-
-    print(generate_club_id())
+    main()
