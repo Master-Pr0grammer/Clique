@@ -1,4 +1,4 @@
-import { SafeAreaView, StyleSheet, Text, TextInput, Image, View } from "react-native"; 
+import { Text, View } from "react-native"; 
 import { styles } from "@/components/Styles/login_styles";
 import { ScrollView } from "react-native-gesture-handler";
 import GallerySwiper from "react-native-gallery-swiper";
